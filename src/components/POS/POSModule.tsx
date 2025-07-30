@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Search, Scan, ShoppingCart, CreditCard, Banknote, QrCode } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Scan, ShoppingCart, CreditCard, Banknote, QrCode, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 interface CartItem {
   id: string;
@@ -13,10 +14,14 @@ interface CartItem {
   barcode: string;
 }
 
+type PaymentMethod = 'efectivo' | 'tarjeta' | 'qr';
+
 export function POSModule() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [total, setTotal] = useState(0);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
+  const { toast } = useToast();
 
   const sampleProducts = [
     { id: '1', name: 'Coca Cola 500ml', price: 2.50, barcode: '123456789012' },
@@ -39,10 +44,70 @@ export function POSModule() {
     calculateTotal();
   };
 
+  const removeFromCart = (productId: string) => {
+    setCart(cart.filter(item => item.id !== productId));
+  };
+
   const calculateTotal = () => {
     const newTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     setTotal(newTotal);
   };
+
+  const procesarVenta = async () => {
+    if (cart.length === 0) {
+      toast({
+        title: "Error",
+        description: "No hay productos en el punto de venta",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedPaymentMethod) {
+      toast({
+        title: "Error",
+        description: "Selecciona un método de pago",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Simular envío al backend
+      const ventaData = {
+        productos: cart,
+        total: total,
+        metodoPago: selectedPaymentMethod,
+        fecha: new Date().toISOString(),
+      };
+
+      // Simular respuesta del servidor con delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: "¡Venta exitosa!",
+        description: `Total: $${total.toFixed(2)} - Método: ${selectedPaymentMethod}`,
+      });
+
+      // Limpiar pantalla para nueva venta
+      setCart([]);
+      setTotal(0);
+      setSelectedPaymentMethod(null);
+      setSearchTerm('');
+
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo procesar la venta. Intenta nuevamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Recalcular total cuando cambie el carrito
+  useEffect(() => {
+    calculateTotal();
+  }, [cart]);
 
   const filteredProducts = sampleProducts.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,7 +165,7 @@ export function POSModule() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShoppingCart className="w-5 h-5" />
-              Carrito de Compras
+              Punto de Venta
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col">
@@ -111,14 +176,24 @@ export function POSModule() {
                 </p>
               ) : (
                 cart.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center p-2 border rounded">
-                    <div>
+                  <div key={item.id} className="flex justify-between items-center p-3 border rounded hover:bg-accent/50">
+                    <div className="flex-1">
                       <p className="font-medium text-sm">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
                         ${item.price.toFixed(2)} x {item.quantity}
                       </p>
                     </div>
-                    <p className="font-bold">${(item.price * item.quantity).toFixed(2)}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold">${(item.price * item.quantity).toFixed(2)}</p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive hover:text-destructive"
+                        onClick={() => removeFromCart(item.id)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
                 ))
               )}
@@ -132,25 +207,44 @@ export function POSModule() {
               </div>
 
               {/* Métodos de Pago */}
-              <div className="grid grid-cols-3 gap-2">
-                <Button variant="outline" size="sm" className="flex flex-col gap-1 h-16">
-                  <Banknote className="w-4 h-4" />
-                  <span className="text-xs">Efectivo</span>
-                </Button>
-                <Button variant="outline" size="sm" className="flex flex-col gap-1 h-16">
-                  <CreditCard className="w-4 h-4" />
-                  <span className="text-xs">Tarjeta</span>
-                </Button>
-                <Button variant="outline" size="sm" className="flex flex-col gap-1 h-16">
-                  <QrCode className="w-4 h-4" />
-                  <span className="text-xs">QR</span>
-                </Button>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Método de Pago:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button 
+                    variant={selectedPaymentMethod === 'efectivo' ? 'default' : 'outline'}
+                    size="sm" 
+                    className="flex flex-col gap-1 h-16"
+                    onClick={() => setSelectedPaymentMethod('efectivo')}
+                  >
+                    <Banknote className="w-4 h-4" />
+                    <span className="text-xs">Efectivo</span>
+                  </Button>
+                  <Button 
+                    variant={selectedPaymentMethod === 'tarjeta' ? 'default' : 'outline'}
+                    size="sm" 
+                    className="flex flex-col gap-1 h-16"
+                    onClick={() => setSelectedPaymentMethod('tarjeta')}
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span className="text-xs">Tarjeta</span>
+                  </Button>
+                  <Button 
+                    variant={selectedPaymentMethod === 'qr' ? 'default' : 'outline'}
+                    size="sm" 
+                    className="flex flex-col gap-1 h-16"
+                    onClick={() => setSelectedPaymentMethod('qr')}
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span className="text-xs">QR</span>
+                  </Button>
+                </div>
               </div>
 
               <Button 
                 className="w-full bg-gradient-success hover:opacity-90"
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || !selectedPaymentMethod}
                 size="lg"
+                onClick={procesarVenta}
               >
                 Procesar Venta
               </Button>

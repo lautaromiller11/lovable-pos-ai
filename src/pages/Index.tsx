@@ -4,6 +4,7 @@ import { POSModule } from '@/components/POS/POSModule';
 import { InventoryModule } from '@/components/Inventory/InventoryModule';
 import { MetricsModule } from '@/components/Metrics/MetricsModule';
 import { AIChatModule } from '@/components/AIChat/AIChatModule';
+import { Toaster } from '@/components/ui/toaster';
 
 const Index = () => {
   const [activeModule, setActiveModule] = useState('pos');
@@ -29,6 +30,7 @@ const Index = () => {
       <main className="flex-1 p-6">
         {renderModule()}
       </main>
+      <Toaster />
     </div>
   );
 };
